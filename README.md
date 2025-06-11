@@ -19,3 +19,5 @@ Telegram-бот на Python с генерацией текста и изобра
 ```bash
 git clone https://github.com/MarkGameOnly/gemini-ai-bot.git
 cd gemini-ai-bot
+
+Telegram-бот с генерацией текста и изображений на базе GPT-4o и DALL·E 3.
