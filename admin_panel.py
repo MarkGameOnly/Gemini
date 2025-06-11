@@ -3,39 +3,58 @@ from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 
-DB_PATH = "users.db"
+ADMINS = [1082828397]  # Список ID админов
+
+DB_PATH = "payments.db"
 
 def get_stats():
     conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users")
-    total = cur.fetchone()[0]
+    cursor = conn.cursor()
 
     today = datetime.now().date()
-    cur.execute("SELECT COUNT(*) FROM users WHERE date(created_at) = ?", (today,))
-    today_count = cur.fetchone()[0]
-
     week_ago = today - timedelta(days=7)
-    cur.execute("SELECT COUNT(*) FROM users WHERE date(created_at) >= ?", (week_ago,))
-    week_count = cur.fetchone()[0]
-
     month_ago = today - timedelta(days=30)
-    cur.execute("SELECT COUNT(*) FROM users WHERE date(created_at) >= ?", (month_ago,))
-    month_count = cur.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM payments WHERE date(date) = ?", (today,))
+    daily_users = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM payments WHERE date(date) >= ?", (week_ago,))
+    weekly_users = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT user_id) FROM payments WHERE date(date) >= ?", (month_ago,))
+    monthly_users = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM payments")
+    total_payments = cursor.fetchone()[0]
+
+    cursor.execute("SELECT SUM(amount) FROM payments")
+    total_revenue = cursor.fetchone()[0] or 0
 
     conn.close()
+    return daily_users, weekly_users, monthly_users, total_payments, total_revenue
 
-    return total, today_count, week_count, month_count
 
-async def show_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    total, today, week, month = get_stats()
-    await update.message.reply_text(
-        f"""📊 Статистика:
-👥 Пользователей всего: {total}
-📅 Сегодня: {today}
-📈 За неделю: {week}
-🗓️ За месяц: {month}"""
+async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id not in ADMINS:
+        return await update.message.reply_text("❌ У вас нет доступа.")
+
+    daily, weekly, monthly, total, revenue = get_stats()
+
+    text = (
+        f"📊 Статистика:
+"
+        f"👥 За день: {daily} пользователей
+"
+        f"📆 За неделю: {weekly}
+"
+        f"🗓 За месяц: {monthly}
+"
+        f"💳 Всего оплат: {total}
+"
+        f"💰 Общая выручка: ${revenue:.2f}"
     )
+    await update.message.reply_text(text)
 
 def setup_admin_handlers(app):
-    app.add_handler(CommandHandler("admin", show_admin_panel))
+    app.add_handler(CommandHandler("stats", admin_stats))
