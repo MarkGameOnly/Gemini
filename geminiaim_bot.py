@@ -1,3 +1,4 @@
+
 import asyncio
 import os
 import logging
@@ -24,7 +25,7 @@ ADMINS = [1082828397]
 logging.basicConfig(level=logging.INFO)
 user_usage = {}
 user_history = {}
-subscribed_users = set()  # Хранилище подписчиков
+subscribed_users = set()
 client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Подписка ---
@@ -47,22 +48,19 @@ def action_buttons():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✍️ Спросить", callback_data="ask_gpt")],
         [InlineKeyboardButton("🖼 Картинка", callback_data="gen_image")],
-        [InlineKeyboardButton("📜 История", callback_data="show_history")],
-        [InlineKeyboardButton("💳 Купить подписку $1", url=f"https://t.me/CryptoBot?start=pay_{TELEGRAM_BOT_TOKEN}")]
+        [InlineKeyboardButton("📜 История", callback_data="show_history")]
     ])
 
 def generate_image(prompt="futuristic AI assistant with glowing circuits, 8k, ultra-detailed"):
     try:
-        import openai
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        response = openai.Image.create(
+        response = client.images.generate(
             model="dall-e-3",
             prompt=prompt,
             size="1024x1024",
-            n=1,
-            quality="standard"
+            quality="standard",
+            n=1
         )
-        return response['data'][0]['url']
+        return response.data[0].url
     except Exception as e:
         import traceback
         print(traceback.format_exc())
@@ -84,7 +82,9 @@ def ask_chatgpt(prompt):
 # --- Команды ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Добро пожаловать в Gemini AI Assistant!\n\nЯ помогу тебе с вопросами, идеями и изображениями.",
+        "👋 Добро пожаловать в Gemini AI Assistant!
+
+Я помогу тебе с вопросами, идеями и изображениями.",
         reply_markup=action_buttons()
     )
 
@@ -114,7 +114,8 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "show_history":
         hist = user_history.get(user_id, [])
         if hist:
-            await query.message.reply_text("📜 История:\n" + "\n".join(hist))
+            await query.message.reply_text("📜 История:
+" + "\n".join(hist))
         else:
             await query.message.reply_text("История пуста.")
 
@@ -141,10 +142,12 @@ def main():
     app.add_handler(CommandHandler("menu", start))
     app.add_handler(CallbackQueryHandler(menu_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
+    from admin_panel import setup_admin_handlers
+    setup_admin_handlers(app)
+
     print("🤖 Gemini ассистент запущен!")
     app.run_polling()
 
 if __name__ == "__main__":
     main()
-from admin_panel import setup_admin_handlers
-setup_admin_handlers(app)
